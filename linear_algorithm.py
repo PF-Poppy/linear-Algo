@@ -175,7 +175,6 @@ def linear_algorithm():
         recipes.append({"ingredientList": ingredientList, "freshNutrient": freshNutrientList})
 
         print(recipes)
-        #return jsonify({"ingredientList": ingredientList, "freshNutrient": freshNutrientList}), 200
         return jsonify({"petrecipes": recipes}), 200
 
 
