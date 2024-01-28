@@ -218,11 +218,11 @@ def linear_algorithm():
                 sum_nutrition = 100*(sum(ingredientsdata[j][i] * coefficient[j] for j in range(len(ingredientsdata))))/(100-water_value)
                 ingred_DM.append(sum_nutrition)
 
-        #checkingnutrition = check_nutrition(ingred_DM,min_limit,max_limit,index_of_price,index_of_water)
-        #if (checkingnutrition == 0):
-        #    print("Nutrition is in range")
-        #else:
-        #    print("Nutrition is not in range")
+        checkingnutrition = check_nutrition(ingred_DM,min_limit,max_limit,index_of_price,index_of_water)
+        if (checkingnutrition == 0):
+            print("Nutrition is in range")
+        else:
+            print("Nutrition is not in range")
 
         freshNutrient = []
         for i in range (len(ingredientsdata[0])):
