@@ -25,8 +25,14 @@ def calculate_nutrition_secondary(ingredient,result):
     
     methionine_cystine = ingredient['Methionine'] + ingredient['Cystine']
     phenylalanine_tyrosine = ingredient['Phenylalanine'] + ingredient['Tyrosine']
-    omega6_omega3_ratio = (ingredient['Linoleic acid'] + ingredient['Arachidonic Acid']) / (ingredient['Alpha linolenic acid'] + ingredient['DHA'] + ingredient['EPA'])
-    calcium_Phosphorus_ratio = ingredient['Calcium'] / ingredient['Phosphorus']
+    if ingredient['Alpha linolenic acid'] + ingredient['DHA'] + ingredient['EPA'] == 0:
+        omega6_omega3_ratio = 0
+    else:
+        omega6_omega3_ratio = (ingredient['Linoleic acid'] + ingredient['Arachidonic acid']) / (ingredient['Alpha linolenic acid'] + ingredient['DHA'] + ingredient['EPA'])
+    if ingredient['Phosphorus'] == 0:
+        calcium_Phosphorus_ratio = 0
+    else:
+        calcium_Phosphorus_ratio = ingredient['Calcium'] / ingredient['Phosphorus']
     vitaminc = ingredient['Vitamin C']*10
     total_omega_3 =  ingredient['Alpha linolenic acid'] + ingredient['DHA'] + ingredient['EPA']
 
@@ -57,53 +63,68 @@ def calculate_nutrition_secondary(ingredient,result):
 def check_nutrition(ingredient,limitmin,limitmax,index_price,index_water):
     maxx = 0
     minn = 0
-    print("-------------------")
+    minindex = []
+    maxindex = []
+    #print("-------------------")
     for i in range(len(ingredient)):
         if (i != index_price and i != index_water):
-            print("ingredient = ",ingredient[i])
-            print("limitmin = ",limitmin[i])
-            print("limitmax = ",limitmax[i])
+            #print("ingredient = ",ingredient[i])
+            #print("limitmin = ",limitmin[i])
+            #print("limitmax = ",limitmax[i])
             
             if (ingredient[i] > limitmax[i]):
-                print("index = ",i)
-                print("max limit exceeded")
+                #print("index = ",i)
+                #print("max limit exceeded")
+                maxindex.append(i)
                 maxx += 1
             if (ingredient[i] < limitmin[i]):
-                print("index = ",i)
-                print("min limit exceeded")
+                #print("index = ",i)
+                #print("min limit exceeded")
+                minindex.append(i)
                 minn += 1
-            print("-------------------")
+            #print("-------------------")
     print("minn = ",minn)        
     print("maxx = ",maxx)
     print("all_index = ",len(ingredient))
     if (maxx == 0 and minn == 0):
-        return 0
-    return 1
+        return 0,minindex,maxindex
+    return 1,minindex,maxindex
 
-def some_new_value():
-    return random.uniform(0, 100)
+def some_new_value(wantvalue):
+    return random.uniform(5, wantvalue)
 
 def objective(x, average_limit, max_limit, min_limit, ingredientsdata, index_of_water, index_of_price):
     for i in range(len(average_limit)):
         if i != index_of_water and i != index_of_price:
-            numerator = sum(ingredientsdata[j][i] * x[j] for j in range(len(ingredientsdata)))
+            numerator = sum(ingredientsdata[j][i] * x[j] for j in range(len(ingredientsdata)))/100
             denominator = sum(ingredientsdata[j][index_of_water] * x[j] for j in range(len(ingredientsdata)))/100
             predicted_res = 100 * numerator / (100 - denominator)
             if not (min_limit[i] <= predicted_res <= max_limit[i]):
-                x = [some_new_value() for _ in range(len(ingredientsdata))]
-                return 100 - sum(x)
-    return 100 - sum(x)
+                x = []
+                for i in range(len(ingredientsdata)):
+                    if (i == 0):
+                        x.append(some_new_value(100))
+                    else:
+                        remaining_sum = 100 - sum(x)
+                        x.append(some_new_value(remaining_sum))
+                return sum(x) - 100
+    return sum(x) - 100
 
 def constraint(x):
     return sum(x) - 100
-
-def hessian_function(x):
-    return np.zeros((len(x), len(x)))
     
 def find_initial_x(average_limit, ingredientsdata, index_of_water, index_of_price, min_limit, max_limit):
     num_ingredients = len(ingredientsdata)
 
-    x0 = [(100/len(ingredientsdata)) for _ in range(len(ingredientsdata))]
+    #x0 = [(100/len(ingredientsdata)) for _ in range(len(ingredientsdata))]
+    x0 = []
+    for i in range(len(ingredientsdata)):
+        if (i == 0):
+            x0.append(some_new_value(100))
+            #x0.append(100/len(ingredientsdata))
+        else:
+            remaining_sum = 100 - sum(x0)
+            x0.append(some_new_value(remaining_sum))
 
     def objective_for_x0(x0):
         num_ingredients = len(ingredientsdata)
@@ -116,7 +137,7 @@ def find_initial_x(average_limit, ingredientsdata, index_of_water, index_of_pric
         predicted_res_values = []
         for i in range(len(average_limit)):
             if i != index_of_water and i != index_of_price:
-                numerator = sum(ingredientsdata[j][i] * x0[j] for j in range(num_ingredients))
+                numerator = sum(ingredientsdata[j][i] * x0[j] for j in range(num_ingredients))/100
                 denominator = sum(ingredientsdata[j][index_of_water] * x0[j] for j in range(num_ingredients)) / 100
                 predicted_res = 100 * numerator / (100 - denominator)
                 predicted_res_values.append(predicted_res)
@@ -126,7 +147,6 @@ def find_initial_x(average_limit, ingredientsdata, index_of_water, index_of_pric
         # Sum of differences as the objective
         return sum(diff_values)
 
-    # Use minimize to find x0 that minimizes the objective
     result = minimize(
         objective_for_x0,
         x0,
@@ -136,7 +156,7 @@ def find_initial_x(average_limit, ingredientsdata, index_of_water, index_of_pric
             {'type': 'ineq', 'fun': lambda x: 100 - x},  # x[i] <= 100
         ],
         bounds=[(0, 100)] * num_ingredients,
-        options={'maxiter': 1000},
+        options={'maxiter': 2000},
         method='Nelder-Mead',
     )
 
@@ -187,7 +207,7 @@ def linear_algorithm():
 
         x0 = find_initial_x(average_limit, ingredientsdata, index_of_water, index_of_price, min_limit, max_limit)
         print("Before optimization: x =", x0)
-        
+
         solution = minimize(
             objective,
             x0,
@@ -197,17 +217,18 @@ def linear_algorithm():
                 {'type': 'ineq', 'fun': lambda x: x - 0},  # x แต่ละตัวมีค่ามากกว่าหรือเท่ากับ 0
                 {'type': 'ineq', 'fun': lambda x: 100 - x}  # x แต่ละตัวมีค่าไม่เกิน 100
             ],
-            bounds=[(1, 100)] * len(ingredientsdata),  # กำหนดขอบเขตของ x
-            options={'maxiter': 2000},
+            bounds=[(0, 100)] * len(ingredientsdata),  # กำหนดขอบเขตของ x
+            options={'maxiter': 1000},
             method='trust-constr',
         )
         print("After optimization: x =", solution.x)
 
+        #coefficient = [60,40]
         coefficient = []
         for i in range(len(solution.x)):
-            coefficient.append(solution.x[i])
+            #coefficient.append(solution.x[i])  
+            coefficient.append(round(solution.x[i], 3))
         print("Sum of coefficient = ",sum(coefficient))
-
         ingred_DM = []
         water_value = sum(ingredientsdata[j][index_of_water] * coefficient[j] for j in range(len(ingredientsdata)))/100
         for i in range (len(ingredientsdata[0])):
@@ -215,10 +236,14 @@ def linear_algorithm():
                 sum_nutrition = 0
                 ingred_DM.append(sum_nutrition)
             if (i != index_of_water):
-                sum_nutrition = 100*(sum(ingredientsdata[j][i] * coefficient[j] for j in range(len(ingredientsdata))))/(100-water_value)
+                numerator = sum(ingredientsdata[j][i] * coefficient[j] for j in range(len(ingredientsdata)))/100
+                sum_nutrition = 100*(numerator)/(100-water_value)
                 ingred_DM.append(sum_nutrition)
+        ingred_DM[6] = 100-(ingred_DM[1]+ingred_DM[2]+ingred_DM[3]+ingred_DM[4]+ingred_DM[5])
+        ingred_DM[0] = 10*((3.5*ingred_DM[2])+(8.5*ingred_DM[3])+(3.5*ingred_DM[6]))
+        #print("ingred_DM = ",ingred_DM)
 
-        checkingnutrition = check_nutrition(ingred_DM,min_limit,max_limit,index_of_price,index_of_water)
+        checkingnutrition,minindex,maxindex = check_nutrition(ingred_DM,min_limit,max_limit,index_of_price,index_of_water)
         if (checkingnutrition == 0):
             print("Nutrition is in range")
         else:
@@ -226,13 +251,16 @@ def linear_algorithm():
 
         freshNutrient = []
         for i in range (len(ingredientsdata[0])):
+            sum_nutrition = 0
             if (i == index_of_water):
                 freshNutrient.append(water_value)
             if (i != index_of_water):
-                sum_nutrition = sum(ingredientsdata[j][i] * coefficient[j] for j in range(len(ingredientsdata)))
+                sum_nutrition = sum(ingredientsdata[j][i] * coefficient[j] for j in range(len(ingredientsdata)))/100
                 freshNutrient.append(sum_nutrition)
-        #เอาสัมประสิทธิ์ที่ได้มาใส่ใน data_json
-        #เอาสารอาหารที่รวมได้จากสัมประสิทธิ์*สารอาหารส่งกลับไปให้ใน data_json
+        freshNutrient[6] = 100-(freshNutrient[1]+freshNutrient[2]+freshNutrient[3]+freshNutrient[4]+freshNutrient[5])
+        freshNutrient[0] = 10*((3.5*freshNutrient[2])+(8.5*freshNutrient[3])+(3.5*freshNutrient[6]))
+        #print("freshNutrient = ",freshNutrient)
+
         ingredientList = []    
         for ingredient, amount in zip(ingredients, coefficient):
             result = {'name': ingredient['name'], 'amount': amount}
@@ -244,13 +272,31 @@ def linear_algorithm():
             if key != 'name':
                 freshNutrients = {'nutrientname': key, 'amount': 0}
                 freshNutrientList.append(freshNutrients)
-        
+
         for nutrients, amounts in zip(freshNutrientList, freshNutrient):
             nutrients['amount'] = amounts
+        #print(freshNutrientList)
+
+        print("maxindex = ",maxindex)
+        for i in range(len(maxindex)):
+            indexmax = 0
+            for key, value1 in limitmin.items():
+                if key != 'name':
+                    if indexmax == maxindex[i]:
+                        print("nutrientname = ",key)
+                    indexmax += 1
+        print("-------------------")
+        print("minindex = ",minindex)
+        for i in range(len(minindex)):
+            indexmin = 0
+            for key, value1 in limitmin.items():
+                if key != 'name':
+                    if indexmin == minindex[i]:
+                        print("nutrientname = ",key)
+                    indexmin += 1
 
         recipes = []
         recipes.append({"ingredientList": ingredientList, "freshNutrient": freshNutrientList})
-
         #print(recipes)
         return jsonify({"petrecipes": recipes}), 200
 
